@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Allow all search engines to crawl the site
+Disallow: /api/
+Disallow: /admin/
+Disallow: /.env*
+Disallow: /downloads/
+
+# Sitemap location - will be added when sitemap is generated
+
+# Crawl delay to be respectful
+Crawl-delay: 1

@@ -1,0 +1,925 @@
+openapi: 3.0.3
+info:
+  title: SouthCoast ProMotion Booking API
+  description: |
+    Production-ready advertising campaign booking and management API for southern England locations.
+    
+    ## Features
+    - **Campaign Management**: Browse and filter available advertising campaigns
+    - **Booking System**: Complete booking workflow with validation
+    - **Payment Processing**: Secure payment handling and status tracking
+    - **Contract Management**: Digital contract signing integration (DocuSign)
+    - **Admin Dashboard**: Administrative campaign and analytics management
+    - **Real-time Updates**: WebSocket support for live availability updates
+    
+    ## Authentication
+    - **Admin Endpoints**: Require `X-Admin-Key` header
+    - **CSRF Protection**: All state-changing operations require CSRF token
+    - **Rate Limiting**: Built-in request throttling for stability
+    
+    ## Error Handling
+    All endpoints return consistent error responses with proper HTTP status codes and detailed error messages.
+  version: 1.0.0
+  contact:
+    name: SouthCoast ProMotion API Support
+    email: support@southcoastpromotion.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:5000/api
+    description: Development server
+  - url: https://southcoast-promotion.replit.app/api
+    description: Production server
+
+tags:
+  - name: Campaigns
+    description: Campaign browsing and filtering operations
+  - name: Bookings
+    description: Booking creation and management
+  - name: Admin
+    description: Administrative operations (requires authentication)
+  - name: Analytics
+    description: Business intelligence and reporting
+  - name: Contracts
+    description: Digital contract management (DocuSign integration)
+  - name: Health
+    description: System health and monitoring
+
+paths:
+  /campaigns:
+    get:
+      tags: [Campaigns]
+      summary: List all campaigns
+      description: |
+        Retrieve all available campaigns with optional filtering and pagination.
+        Supports real-time availability updates via WebSocket connections.
+      parameters:
+        - name: location
+          in: query
+          description: Filter by campaign location
+          schema:
+            type: string
+            example: "Brighton"
+        - name: date
+          in: query
+          description: Filter by campaign date (DD/MM/YYYY format)
+          schema:
+            type: string
+            pattern: '^\d{2}/\d{2}/\d{4}$'
+            example: "15/06/2024"
+        - name: availability
+          in: query
+          description: Filter by availability status
+          schema:
+            type: string
+            enum: [available, limited, full]
+        - name: minPrice
+          in: query
+          description: Minimum price per slot filter
+          schema:
+            type: number
+            minimum: 0
+            example: 50
+        - name: maxPrice
+          in: query
+          description: Maximum price per slot filter
+          schema:
+            type: number
+            minimum: 0
+            example: 500
+        - name: limit
+          in: query
+          description: Number of campaigns to return (pagination)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of campaigns to skip (pagination)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Successful response with campaigns list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaigns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Campaign'
+                  total:
+                    type: integer
+                    description: Total number of campaigns matching filters
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+              examples:
+                success:
+                  summary: Successful campaigns retrieval
+                  value:
+                    campaigns:
+                      - id: 1
+                        campaign: "Brighton City Centre"
+                        location: "Brighton"
+                        date: "15/06/2024"
+                        time: "09:00-17:00"
+                        slotsAvailable: 8
+                        totalSlots: 10
+                        pricePerSlot: 125.00
+                        availability: "available"
+                        description: "Premium city centre advertising location"
+                    total: 156
+                    pagination:
+                      limit: 50
+                      offset: 0
+                      hasMore: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /bookings:
+    post:
+      tags: [Bookings]
+      summary: Create a new booking
+      description: |
+        Create a new campaign booking with comprehensive validation.
+        Requires CSRF token for security. Triggers email notifications and real-time updates.
+      security:
+        - CSRFToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+            examples:
+              complete_booking:
+                summary: Complete booking with all fields
+                value:
+                  campaignId: 1
+                  customerName: "John Smith"
+                  customerEmail: "john.smith@example.com"
+                  customerPhone: "+44 7700 900123"
+                  company: "Smith Marketing Ltd"
+                  slotsRequired: 2
+                  requirements: "High-resolution images, morning placement preferred"
+                  agreedToTerms: true
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  booking:
+                    $ref: '#/components/schemas/Booking'
+                  nextSteps:
+                    type: array
+                    items:
+                      type: string
+                    example:
+                      - "Payment processing required"
+                      - "Contract signing needed"
+                      - "Upload creative materials 48 hours before campaign"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Booking conflict (insufficient slots)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                insufficient_slots:
+                  summary: Not enough slots available
+                  value:
+                    error: "Insufficient slots available"
+                    details:
+                      requested: 5
+                      available: 2
+                      campaignId: 1
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /health:
+    get:
+      tags: [Health]
+      summary: System health check
+      description: |
+        Comprehensive system health monitoring including database connectivity,
+        external service status, and performance metrics.
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+
+  /admin/campaigns:
+    get:
+      tags: [Admin]
+      summary: Admin campaign management
+      description: Administrative view of all campaigns with enhanced data
+      security:
+        - AdminKey: []
+      responses:
+        '200':
+          description: Admin campaigns list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaigns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminCampaign'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    post:
+      tags: [Admin]
+      summary: Create new campaign
+      description: Create a new advertising campaign (admin only)
+      security:
+        - AdminKey: []
+        - CSRFToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignCreate'
+      responses:
+        '201':
+          description: Campaign created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  campaign:
+                    $ref: '#/components/schemas/Campaign'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /admin/campaigns/{id}:
+    put:
+      tags: [Admin]
+      summary: Update campaign
+      description: Update an existing campaign (admin only)
+      security:
+        - AdminKey: []
+        - CSRFToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignUpdate'
+      responses:
+        '200':
+          description: Campaign updated successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    
+    delete:
+      tags: [Admin]
+      summary: Delete campaign
+      description: Delete a campaign (admin only)
+      security:
+        - AdminKey: []
+        - CSRFToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '204':
+          description: Campaign deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/analytics:
+    get:
+      tags: [Analytics]
+      summary: Business intelligence data
+      description: |
+        Comprehensive analytics including revenue metrics, campaign performance,
+        booking trends, and customer insights.
+      security:
+        - AdminKey: []
+      parameters:
+        - name: startDate
+          in: query
+          description: Analytics start date (DD/MM/YYYY)
+          schema:
+            type: string
+            pattern: '^\d{2}/\d{2}/\d{4}$'
+        - name: endDate
+          in: query
+          description: Analytics end date (DD/MM/YYYY)  
+          schema:
+            type: string
+            pattern: '^\d{2}/\d{2}/\d{4}$'
+        - name: granularity
+          in: query
+          description: Data granularity for time-series analytics
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+            default: weekly
+      responses:
+        '200':
+          description: Analytics data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analytics'
+
+  /contract/create:
+    post:
+      tags: [Contracts]
+      summary: Create DocuSign contract
+      description: |
+        Create a digital contract for signing via DocuSign integration.
+        Requires valid booking ID and customer information.
+      security:
+        - CSRFToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+      responses:
+        '201':
+          description: Contract created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  securitySchemes:
+    AdminKey:
+      type: apiKey
+      in: header
+      name: X-Admin-Key
+      description: Administrative API key for protected operations
+    
+    CSRFToken:
+      type: apiKey  
+      in: header
+      name: X-CSRF-Token
+      description: CSRF protection token (obtain from /api/csrf-token)
+
+  schemas:
+    Campaign:
+      type: object
+      required: [id, campaign, location, date, time, slotsAvailable, totalSlots, pricePerSlot]
+      properties:
+        id:
+          type: integer
+          description: Unique campaign identifier
+          example: 1
+        campaign:
+          type: string
+          description: Campaign name/title
+          example: "Brighton City Centre"
+          maxLength: 200
+        location:
+          type: string
+          description: Campaign location
+          example: "Brighton"
+          maxLength: 100
+        date:
+          type: string
+          description: Campaign date in DD/MM/YYYY format
+          pattern: '^\d{2}/\d{2}/\d{4}$'
+          example: "15/06/2024"
+        time:
+          type: string
+          description: Campaign time slot
+          example: "09:00-17:00"
+        slotsAvailable:
+          type: integer
+          description: Number of available booking slots
+          minimum: 0
+          example: 8
+        totalSlots:
+          type: integer
+          description: Total campaign capacity
+          minimum: 1
+          example: 10
+        pricePerSlot:
+          type: number
+          format: float
+          description: Price per booking slot in GBP
+          minimum: 0
+          example: 125.00
+        availability:
+          type: string
+          enum: [available, limited, full]
+          description: Campaign availability status
+        description:
+          type: string
+          description: Detailed campaign description
+          example: "Premium city centre advertising location with high footfall"
+
+    AdminCampaign:
+      allOf:
+        - $ref: '#/components/schemas/Campaign'
+        - type: object
+          properties:
+            bookings:
+              type: integer
+              description: Number of current bookings
+            revenue:
+              type: number
+              description: Total revenue generated
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string  
+              format: date-time
+
+    BookingRequest:
+      type: object
+      required: [campaignId, customerName, customerEmail, customerPhone, slotsRequired, agreedToTerms]
+      properties:
+        campaignId:
+          type: integer
+          description: ID of the campaign to book
+          minimum: 1
+          example: 1
+        customerName:
+          type: string
+          description: Customer full name
+          minLength: 2
+          maxLength: 100
+          example: "John Smith"
+        customerEmail:
+          type: string
+          format: email
+          description: Customer email address
+          maxLength: 254
+          example: "john.smith@example.com"
+        customerPhone:
+          type: string
+          description: Customer phone number (international format supported)
+          pattern: '^[+]?[\d\s\-()]+$'
+          minLength: 10
+          maxLength: 20
+          example: "+44 7700 900123"
+        company:
+          type: string
+          description: Company name (optional)
+          maxLength: 100
+          example: "Smith Marketing Ltd"
+        slotsRequired:
+          type: integer
+          description: Number of slots to book
+          minimum: 1
+          maximum: 20
+          example: 2
+        requirements:
+          type: string
+          description: Special requirements or notes
+          maxLength: 1000
+          example: "High-resolution images, morning placement preferred"
+        agreedToTerms:
+          type: boolean
+          description: Confirmation of terms and conditions acceptance
+          example: true
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 12345
+        campaignId:
+          type: integer
+          example: 1
+        customerName:
+          type: string
+          example: "John Smith"
+        customerEmail:
+          type: string
+          format: email
+          example: "john.smith@example.com"
+        customerPhone:
+          type: string
+          example: "+44 7700 900123"
+        company:
+          type: string
+          example: "Smith Marketing Ltd"
+        slotsRequired:
+          type: integer
+          example: 2
+        totalPrice:
+          type: number
+          format: float
+          example: 250.00
+        requirements:
+          type: string
+          example: "High-resolution images, morning placement preferred"
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled]
+          example: "pending"
+        paymentStatus:
+          type: string
+          enum: [pending, paid, failed, refunded]
+          example: "pending"
+        contractSigned:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-06-01T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-06-01T10:30:00Z"
+
+    CampaignCreate:
+      type: object
+      required: [campaign, location, date, time, totalSlots, pricePerSlot]
+      properties:
+        campaign:
+          type: string
+          maxLength: 200
+          example: "New Campaign"
+        location:
+          type: string
+          maxLength: 100
+          example: "Canterbury"
+        date:
+          type: string
+          pattern: '^\d{2}/\d{2}/\d{4}$'
+          example: "20/08/2024"
+        time:
+          type: string
+          example: "08:00-18:00"
+        totalSlots:
+          type: integer
+          minimum: 1
+          maximum: 50
+          example: 15
+        pricePerSlot:
+          type: number
+          minimum: 0
+          example: 150.00
+        description:
+          type: string
+          maxLength: 1000
+
+    CampaignUpdate:
+      type: object
+      properties:
+        campaign:
+          type: string
+          maxLength: 200
+        location:
+          type: string
+          maxLength: 100
+        date:
+          type: string
+          pattern: '^\d{2}/\d{2}/\d{4}$'
+        time:
+          type: string
+        totalSlots:
+          type: integer
+          minimum: 1
+          maximum: 50
+        pricePerSlot:
+          type: number
+          minimum: 0
+        description:
+          type: string
+          maxLength: 1000
+
+    Analytics:
+      type: object
+      properties:
+        totalRevenue:
+          type: number
+          format: float
+          example: 25750.00
+        totalBookings:
+          type: integer
+          example: 342
+        averageBookingValue:
+          type: number
+          format: float
+          example: 75.29
+        topCampaigns:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              bookings:
+                type: integer
+              revenue:
+                type: number
+        revenueByMonth:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+                example: "2024-06"
+              revenue:
+                type: number
+              bookings:
+                type: integer
+        paymentStatusDistribution:
+          type: object
+          properties:
+            paid:
+              type: integer
+            pending:
+              type: integer
+            failed:
+              type: integer
+
+    ContractRequest:
+      type: object
+      required: [bookingId, signerEmail, signerName]
+      properties:
+        bookingId:
+          type: integer
+          example: 12345
+        signerEmail:
+          type: string
+          format: email
+          example: "john.smith@example.com"
+        signerName:
+          type: string
+          example: "John Smith"
+        returnUrl:
+          type: string
+          format: uri
+          example: "https://southcoast-promotion.com/contract-complete"
+
+    ContractResponse:
+      type: object
+      properties:
+        contractId:
+          type: string
+          example: "contract_abc123"
+        signingUrl:
+          type: string
+          format: uri
+          example: "https://demo.docusign.net/signing/..."
+        status:
+          type: string
+          enum: [created, sent, signed, completed]
+        expiresAt:
+          type: string
+          format: date-time
+
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-06-01T10:30:00Z"
+        version:
+          type: string
+          example: "1.0.0"
+        uptime:
+          type: number
+          description: Uptime in seconds
+          example: 86400
+        checks:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                responseTime:
+                  type: number
+                  description: Response time in milliseconds
+            external_services:
+              type: object
+              properties:
+                docusign:
+                  type: string
+                  enum: [available, unavailable, not_configured]
+                sendgrid:
+                  type: string
+                  enum: [available, unavailable, not_configured]
+        performance:
+          type: object
+          properties:
+            memory_usage:
+              type: object
+              properties:
+                used:
+                  type: number
+                total:
+                  type: number
+            response_times:
+              type: object
+              properties:
+                average:
+                  type: number
+                p95:
+                  type: number
+
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          example: 50
+        offset:
+          type: integer
+          example: 0
+        total:
+          type: integer
+          example: 156
+        hasMore:
+          type: boolean
+          example: true
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request data"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "VALIDATION_ERROR"
+        details:
+          type: object
+          description: Additional error context
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-06-01T10:30:00Z"
+        requestId:
+          type: string
+          description: Unique request identifier for debugging
+          example: "req_abc123"
+
+    ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            validationErrors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    example: "customerEmail"
+                  message:
+                    type: string
+                    example: "Must be a valid email address"
+                  value:
+                    type: string
+                    example: "invalid-email"
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            validation_error:
+              summary: Validation failed
+              value:
+                error: "Validation failed"
+                code: "VALIDATION_ERROR"
+                details:
+                  field: "customerEmail"
+                  message: "Must be a valid email address"
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missing_auth:
+              summary: Missing authentication
+              value:
+                error: "Authentication required"
+                code: "UNAUTHORIZED"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            insufficient_permissions:
+              summary: Insufficient permissions
+              value:
+                error: "Access denied"
+                code: "FORBIDDEN"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            resource_not_found:
+              summary: Resource not found
+              value:
+                error: "Campaign not found"
+                code: "NOT_FOUND"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            server_error:
+              summary: Internal server error
+              value:
+                error: "An internal error occurred"
+                code: "INTERNAL_ERROR"
