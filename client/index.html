@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SouthCoast ProMotion - Campaign Booking System</title>
+    <meta name="description" content="Book premium advertising campaigns across southern England. Browse available promotional slots in Brighton, Hastings, Eastbourne, and more locations. Professional advertising booking system with real-time availability." />
+    <meta name="keywords" content="advertising, campaigns, promotion, booking, southern england, brighton, hastings" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="SouthCoast ProMotion - Campaign Booking System" />
+    <meta property="og:description" content="Book premium advertising campaigns across southern England" />
+    
+    <!-- Performance optimizations -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://replit.com" />
+    
+    <!-- Font loading optimized -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+    
+    <!-- Security headers -->
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+    
+    <!-- SEO optimization -->
+    <link rel="canonical" href="https://7a7cff80-3c88-43ba-92a1-e01f9acee15c-00-34cut6epqkov.worf.replit.dev/" />
+    <meta property="og:url" content="https://7a7cff80-3c88-43ba-92a1-e01f9acee15c-00-34cut6epqkov.worf.replit.dev/" />
+    <meta property="og:image" content="https://7a7cff80-3c88-43ba-92a1-e01f9acee15c-00-34cut6epqkov.worf.replit.dev/og-image.png" />
+    
+    <!-- Critical CSS optimized for LCP/FCP -->
+    <style id="critical-css">
+      /* Critical above-the-fold styles for immediate rendering */
+      body { 
+        margin: 0; 
+        padding: 0;
+        font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+        background: #0f172a;
+        color: #ffffff;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeSpeed;
+      }
+      #root { min-height: 100vh; }
+      .hero, .campaign-list { display: block; }
+      .campaign-card { 
+        display: flex; 
+        background: rgb(30, 41, 59); 
+        border: 1px solid rgb(71, 85, 105);
+        border-radius: 8px;
+        padding: 16px;
+        margin: 8px 0;
+        contain: layout style paint;
+      }
+      .loading-skeleton { 
+        background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%); 
+        animation: shimmer 1.5s infinite;
+        background-size: 200px 100%;
+        contain: layout style paint;
+      }
+      @keyframes shimmer {
+        0% { background-position: -200px 0; }
+        100% { background-position: calc(200px + 100%) 0; }
+      }
+      .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+      .button { 
+        padding: 12px 24px; 
+        border-radius: 6px; 
+        border: none; 
+        cursor: pointer;
+        min-height: 44px;
+        font-size: 16px;
+        contain: layout style;
+      }
+      /* Mobile performance */
+      @media (pointer: coarse) {
+        button, a, input, select { 
+          min-height: 44px; 
+          min-width: 44px; 
+          touch-action: manipulation;
+        }
+      }
+      /* LCP optimization */
+      .lcp-optimized { contain: layout style paint; content-visibility: auto; }
+      img { height: auto; max-width: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    <!-- Development banner removed for production performance -->
+  </body>
+</html>

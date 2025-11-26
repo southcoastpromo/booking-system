@@ -1,0 +1,52 @@
+/* Non-critical component styles - Lazy loaded for performance */
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Non-critical lazy-loaded styles only */
+  /* Core styles (.button-primary, .touch-button, .mobile-filter-panel) moved to index.css */
+  
+  /* Enhanced lazy-loaded date picker styles */
+  .date-picker-dropdown {
+    @apply bg-white border border-gray-200 rounded-lg shadow-xl z-50;
+  }
+  
+  /* Advanced chart animations (lazy loaded) */
+  .chart-container {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .chart-tooltip {
+    @apply bg-gray-800 text-white text-xs rounded px-2 py-1 shadow-lg;
+  }
+}
+
+/* Essential animations only */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Mobile optimizations */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px;
+    padding: 12px;
+  }
+  
+  .mobile-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
